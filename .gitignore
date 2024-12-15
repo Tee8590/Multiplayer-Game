@@ -1,0 +1,66 @@
+# Unity generated files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+
+# Avoid crash reports and other OS-specific files
+*.stackdump
+
+# Uncomment if you have a caching directory for packages
+# [Pp]ackage[Cc]ache/
+
+# Auto-generated VS/VSCode files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+.vscode/
+
+# Rider project files
+.idea/
+*.iml
+
+# Unity Cache Server
+Cache/
+
+# Unity asset files
+[Dd]ebug[Ll]og.txt
+/[Aa]ssets/AssetStoreTools*
+
+# Build artifacts
+*.apk
+*.aab
+*.unitypackage
+
+# Environment-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# JetBrains Rider
+.idea/
+*.idea/
+
+# Unity Collaborate
+.Collab/
+
+# Unity cloud build files
+[Uu]ser[Ss]ettings/
+
+# UPM log files
+upm.log
+
+.vs/
