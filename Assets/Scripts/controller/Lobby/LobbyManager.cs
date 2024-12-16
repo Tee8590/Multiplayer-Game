@@ -6,7 +6,8 @@ using System.Collections.Generic; // For List
 
 public class LobbyManager : MonoBehaviour
 {
-    [SerializeField] private TextMeshProUGUI joinCodeText;
+    public static LobbyManager Instance { get; private set; }
+
     [SerializeField] private GameObject hostPanel; // Panel with host/join buttons
     [SerializeField] private GameObject scrollViewPanel; // Panel with the player list
     [SerializeField] private Button startButton; // Start button for the host
@@ -16,11 +17,8 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private Button joinSubmitButton;
     [SerializeField] private Button closePopUpButton;
     [SerializeField] private TMP_InputField codeInputField; // Input field for joining
-    [SerializeField] private Transform playerListContainer; // Container for player names
-    [SerializeField] private TextMeshProUGUI playerNamePrefab; // Prefab for player names
 
     private string lobbyCode;
-    private List<string> players = new ();
 
     private void Awake()
     {
@@ -46,38 +44,27 @@ public class LobbyManager : MonoBehaviour
         }
         else
         {
-            string relayCode = await RelayController.Instance.CreateRelay();
-            Debug.Log(relayCode);
 
-            lobbyCode = relayCode;
-            joinCodeText.text = "Code: " + lobbyCode;
+            bool isLobbyCreated = await LobbyController.Instance.CreateLobby();
 
-            AddPlayerToList("Host");
+            if (isLobbyCreated) {
 
-            hostPanel.SetActive(false);
-            scrollViewPanel.SetActive(true);
-            startButton.interactable = true;
+                hostPanel.SetActive(false);
+                scrollViewPanel.SetActive(true);
+                startButton.interactable = true;
+            }
         }
     }
 
-    public void OpenJoinPopup()
+    private async void StartGameScene()
     {
-        joinPopup.SetActive(true);
+        bool isStarted = await LobbyController.Instance.StartGame();
+
+        if (isStarted)
+        {
+            LobbyController.Instance.GoToGameScene(false);
+        }
     }
-
-    private void AddPlayerToList(string playerName)
-    {
-        players.Add(playerName);
-
-        TextMeshProUGUI playerNameText = Instantiate(playerNamePrefab, playerListContainer);
-        playerNameText.text = playerName;
-    }
-
-    private void StartGameScene()
-    {
-        SceneManager.LoadScene("MultiPlayer");
-    }
-
     private async void JoinGame()
     {
         string enteredCode = codeInputField.text;
@@ -88,12 +75,12 @@ public class LobbyManager : MonoBehaviour
             return;
         }
 
-        await RelayController.Instance.JoinRelay(enteredCode);
+        bool isJoinedLobbyByCode = await LobbyController.Instance.JoinLobbyByCode(enteredCode);
+        if (isJoinedLobbyByCode) {
+            codeInputField.text = "";
+            joinPopup.SetActive(false);
 
-        codeInputField.text = "";
-        joinPopup.SetActive(false);
-
-        AddPlayerToList("Player " + (players.Count + 1));
+        }
     }
 
     private void ShowErrorMessage(string message)
@@ -104,5 +91,9 @@ public class LobbyManager : MonoBehaviour
     private void ClosePopUp()
     {
         joinPopup.SetActive(false);
+    }
+    public void OpenJoinPopup()
+    {
+        joinPopup.SetActive(true);
     }
 }

@@ -8,6 +8,8 @@ public class NetworkManagerUI : MonoBehaviour
     [SerializeField] private Button hostBtn;
     [SerializeField] private Button clientBtn;
 
+    public static NetworkManagerUI Instance { get; private set; }
+
     private void Awake()
     {
         serverBtn.onClick.AddListener(() =>
@@ -27,21 +29,12 @@ public class NetworkManagerUI : MonoBehaviour
 
         hostBtn.onClick.AddListener( async () =>
         {
-            Debug.Log("Button clicked, checking RelayController.Instance.");
-            if (RelayController.Instance == null)
-            {
-                Debug.LogError("RelayController instance is not initialized.");
-            }
-            else
-            {
-                string relayCode = await RelayController.Instance.CreateRelay();
-                Debug.Log(relayCode);
-            }
+            
         });
 
         clientBtn.onClick.AddListener(() =>
         {
-            NetworkManager.Singleton.StartClient();
+
         });
     }
 }

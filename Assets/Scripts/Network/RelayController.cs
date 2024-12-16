@@ -16,30 +16,30 @@ public class RelayController : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         else if (Instance != this)
         {
             Destroy(gameObject);
         }
-        DontDestroyOnLoad(gameObject);
     }
-    private async void Start()
-    {
-        await UnityServices.InitializeAsync();
+    //private async void Start()
+    //{
+    //    await UnityServices.InitializeAsync();
 
-        AuthenticationService.Instance.SignedIn += () =>
-        {
-            Debug.Log("PlayerID" + AuthenticationService.Instance.PlayerId);
-        };
+    //    AuthenticationService.Instance.SignedIn += () =>
+    //    {
+    //        Debug.Log("PlayerID" + AuthenticationService.Instance.PlayerId);
+    //    };
 
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
-    }
+    //    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+    //}
 
     public async Task<string> CreateRelay()
     {
         try
         {
-            Allocation allocation =  await RelayService.Instance.CreateAllocationAsync(3);
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(3);
 
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
@@ -51,7 +51,9 @@ public class RelayController : MonoBehaviour
                 allocation.ConnectionData
             );
 
-            NetworkManager.Singleton.StartHost();
+            //NetworkManager.Singleton.StartHost();
+
+            Debug.Log("Relay IP: " + allocation.RelayServer.IpV4 + " Port: " + allocation.RelayServer.Port + " joinCode" + joinCode);
 
             return joinCode;
         }
@@ -62,12 +64,12 @@ public class RelayController : MonoBehaviour
         }
     }
 
-    public async Task JoinRelay (string joinCode)
+    public async Task<bool> JoinRelay (string joinCode)
     {
         try
         {
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
-
+            Debug.Log(" join Relay IP: " + joinAllocation.RelayServer.IpV4 + " join Port: " + joinAllocation.RelayServer.Port + "joinCode" + joinCode);
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetClientRelayData(
                 joinAllocation.RelayServer.IpV4,
                 (ushort)joinAllocation.RelayServer.Port,
@@ -77,11 +79,13 @@ public class RelayController : MonoBehaviour
                 joinAllocation.HostConnectionData
             );
 
-            NetworkManager.Singleton.StartClient();
+            //NetworkManager.Singleton.StartClient();
+            return true;
         }
         catch (RelayServiceException e)
         {
             Debug.Log("RelayServiceException : " + e);
+            return false;
         }
     }
 }
