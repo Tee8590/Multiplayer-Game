@@ -23,6 +23,8 @@ public class RelayController : MonoBehaviour
             Destroy(gameObject);
         }
     }
+
+
     //private async void Start()
     //{
     //    await UnityServices.InitializeAsync();
@@ -51,9 +53,7 @@ public class RelayController : MonoBehaviour
                 allocation.ConnectionData
             );
 
-            //NetworkManager.Singleton.StartHost();
-
-            Debug.Log("Relay IP: " + allocation.RelayServer.IpV4 + " Port: " + allocation.RelayServer.Port + " joinCode" + joinCode);
+          /*  Debug.Log("Relay IP: " + allocation.RelayServer.IpV4 + " Port: " + allocation.RelayServer.Port + " joinCode" + joinCode);*/
 
             return joinCode;
         }

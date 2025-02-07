@@ -8,6 +8,7 @@ using Unity.Services.Core;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 //using static UnityEditor.Experimental.GraphView.GraphView;
 
@@ -27,6 +28,11 @@ public class LobbyController : MonoBehaviour
     [SerializeField] private Transform playerListContainer; // Container for player names
     [SerializeField] private TextMeshProUGUI playerNamePrefab; // Prefab for player names
     [SerializeField] private TextMeshProUGUI joinCodeText;
+    [SerializeField] private EventSystem eventSystem;
+    [SerializeField] private AudioListener audioListener;
+    [SerializeField] private GameObject lobbyUIPanel;
+    [SerializeField] private GameObject lobbyCamera;
+    [SerializeField] private GameObject mainCamera;
 
     private List<string> players = new();
 
@@ -35,12 +41,13 @@ public class LobbyController : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
-        else if (Instance != this)
+        else
         {
             Destroy(gameObject);
         }
-        DontDestroyOnLoad(gameObject);
+        
     }
     private async void Start()
     {
@@ -48,15 +55,19 @@ public class LobbyController : MonoBehaviour
         {
             await UnityServices.InitializeAsync();
 
+            lobbyUIPanel = GameObject.FindGameObjectWithTag("lobbyuipanel");
+            lobbyCamera = GameObject.FindGameObjectWithTag("lobbycamera");
+            mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
+
             AuthenticationService.Instance.SignedIn += () =>
             {
                 Debug.Log("PlayerID" + AuthenticationService.Instance.PlayerId);
             };
-            if (!AuthenticationService.Instance.IsSignedIn)
-            {
+            //if (!AuthenticationService.Instance.IsSignedIn)
+            //{
                 Debug.Log("AuthenticationService.Instance.IsSignedIn" + AuthenticationService.Instance.IsSignedIn);
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
-            }
+            //}
 
             playerName = "Player " + UnityEngine.Random.Range(10, 99);
         }
@@ -74,15 +85,24 @@ public class LobbyController : MonoBehaviour
 
     private async void HandleLobbyTimer()
     {
+        //Debug.Log("here.");
         if (hostLobby != null) { 
             timer -= Time.deltaTime;
-
             if(timer < 0f)
             {
+               /* Debug.Log(timer);*/
                 float maxTime = 15;
                 timer = maxTime;
 
-                await LobbyService.Instance.SendHeartbeatPingAsync(hostLobby.Id);
+                try
+                {
+                    await LobbyService.Instance.SendHeartbeatPingAsync(hostLobby.Id);
+                    Debug.Log("Heartbeat sent successfully.");
+                }
+                catch (LobbyServiceException ex)
+                {
+                    Debug.LogError($"Failed to send heartbeat: {ex.Message}");
+                }
             }
         }
     }
@@ -130,15 +150,16 @@ public class LobbyController : MonoBehaviour
                             "GameMode" , new(DataObject.VisibilityOptions.Public, "Multi Player")
                         },
                         {
-                            "JoinCode" , new(DataObject.VisibilityOptions.Member, "0")
+                            "JoinCode" , new(DataObject.VisibilityOptions.Public, "0")
                         }
                     }
             };
 
             Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayerCount, createLobbyOptions);
-            Debug.Log($"Lobby Created: Name = {lobby.Name}, ID = {lobby.Id}, MaxPlayers = {lobby.MaxPlayers}");
-            hostLobby = joinedLobby = lobby;
-            ListLobbies();
+            Debug.Log($"Lobby Created: Name = {lobby.Name}, ID = {lobby.Id}, MaxPlayers = {lobby.MaxPlayers}" + " Lobby Code: " + lobby.LobbyCode);
+            hostLobby = lobby;
+            joinedLobby = hostLobby;
+            
             PrintPlayers(hostLobby);
             return true;
         }
@@ -153,7 +174,6 @@ public class LobbyController : MonoBehaviour
     {
         try
         {
-            Debug.Log("List");
             QueryLobbiesOptions query = new()
             {
                 Count = 20,
@@ -166,11 +186,12 @@ public class LobbyController : MonoBehaviour
                 }
             };
 
-            QueryResponse queryResponse = await LobbyService.Instance.QueryLobbiesAsync(query);
+            QueryResponse queryResponse = await Lobbies.Instance.QueryLobbiesAsync(query);
+            //QueryResponse queryResponse = await LobbyService.Instance.QueryLobbiesAsync(query);
             Debug.Log($"Number of Lobbies Found: {queryResponse.Results.Count}");
             foreach (Lobby lobby in queryResponse.Results)
             {
-                Debug.Log("name : " + lobby.Name + " max players : " + lobby.MaxPlayers);
+                Debug.Log("name : " + lobby.Name + " max players : " + lobby.MaxPlayers + " Lobby Code: " + lobby.LobbyCode);
             }
         }
         catch (LobbyServiceException e)
@@ -190,19 +211,17 @@ public class LobbyController : MonoBehaviour
             };
 
             lobbyCode = lobbyCode.Trim();
-            ListLobbies();
-            Debug.Log($"Attempting to join lobby with code: {lobbyCode}");
 
             if (string.IsNullOrEmpty(lobbyCode))
             {
                 Debug.LogError("Lobby code is null or empty");
                 return false;
             }
-
-            Lobby lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
+            Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
+            //Lobby lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
 
             joinedLobby = lobby;
-
+            
             PrintPlayers(joinedLobby);
             return false;
         }
@@ -344,16 +363,14 @@ public class LobbyController : MonoBehaviour
             try
             {
                 string relayCode = await RelayController.Instance.CreateRelay();
-                Debug.Log("relayCode : " + relayCode);
                 joinCodeText.text = relayCode;
-                Debug.Log("Before Lobby Data: " + joinedLobby.Data["JoinCode"].Value);
                 Lobby lobby = await LobbyService.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
                 {
-                    Data = new Dictionary<string, DataObject> { { "JoinCode", new(DataObject.VisibilityOptions.Member, relayCode) } }
+                    Data = new Dictionary<string, DataObject> { { "JoinCode", new(DataObject.VisibilityOptions.Public, relayCode) } }
                 });
 
                 joinedLobby = lobby;
-                Debug.Log("Updated Lobby Data: " + joinedLobby.Data["JoinCode"].Value);
+
                 return true;
             }
             catch (LobbyServiceException e)
@@ -370,8 +387,28 @@ public class LobbyController : MonoBehaviour
         isClient = client;
         if(joinedLobby != null)
         {
+            
+            if (lobbyUIPanel != null)
+            {
+                lobbyUIPanel.SetActive(false);
+            }
+            if (lobbyCamera.gameObject.activeSelf)
+            {
+                lobbyCamera.gameObject.SetActive(false);
+            }
+
+            
             SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.LoadScene("MultiPlayer");
+            SceneManager.LoadScene("MultiPlayer", LoadSceneMode.Additive);
+
+            /*// First unload the Lobby scene
+            SceneManager.UnloadSceneAsync("Lobby").completed += _ =>
+            {
+                // Then load the MultiPlayer scene
+                SceneManager.LoadScene("MultiPlayer", LoadSceneMode.Additive);
+            };
+
+            SceneManager.sceneLoaded += OnSceneLoaded;*/
         }
     }
 
@@ -388,8 +425,29 @@ public class LobbyController : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+
         if (scene.name == "MultiPlayer")
-        {
+        {          
+            if (eventSystem != null)
+            {
+                eventSystem.gameObject.SetActive(false);
+            }
+
+            if (audioListener != null)
+            {
+                audioListener.gameObject.SetActive(false);
+            }
+
+            //SceneManager.UnloadSceneAsync("Lobby");
+            
+            SceneManager.SetActiveScene(SceneManager.GetSceneByName("MultiPlayer"));
+            /*Debug.Log("mainCamera" + mainCamera);
+            if (mainCamera != null)
+            {
+                mainCamera.gameObject.SetActive(false);
+            }*/
+
+
             if (RelayController.Instance != null)
             {
                 if (!isClient)
@@ -408,6 +466,9 @@ public class LobbyController : MonoBehaviour
             {
                 Debug.LogError("RelayController instance not found in MultiPlayer scene.");
             }
+
+            //SceneManager.sceneLoaded -= OnSceneLoaded;
         }
+
     }
 }
